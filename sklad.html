@@ -98,9 +98,41 @@ tr:hover td{background:rgba(0,180,255,.04)}
 #print-area tr{page-break-inside:avoid}
 @media print{#print-area{padding:8mm 12mm}#print-area .no-print{display:none}}
 }
+
+/* ===== МОБІЛЬНА АДАПТАЦІЯ ===== */
+#mobile-menu-btn{display:none;position:fixed;top:12px;left:12px;z-index:200;width:40px;height:40px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:20px;cursor:pointer;align-items:center;justify-content:center}
+#mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+@media(max-width:768px){
+  #mobile-menu-btn{display:flex}
+  #sidebar{transform:translateX(-100%);transition:transform .3s ease;width:220px}
+  #sidebar.open{transform:translateX(0)}
+  #sidebar .nav-item{width:auto;height:40px;padding:0 14px;justify-content:flex-start;gap:10px;font-size:13px;margin:0 10px}
+  #sidebar .nav-item::after{content:attr(data-label);font-size:13px}
+  #sidebar .logo{padding:14px}
+  #sidebar.open + #mobile-overlay{display:block}
+  #main{margin-left:0;padding:56px 14px 20px}
+  .page-header{flex-direction:column;align-items:flex-start;gap:12px;margin-bottom:16px}
+  .page-title{font-size:18px}
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px}
+  .stat-card{padding:12px}
+  .stat-value{font-size:16px}
+  .form-row{grid-template-columns:1fr!important}
+  .modal{width:95vw!important;max-width:95vw!important;max-height:90vh;margin:5vh auto}
+  .modal-body{padding:16px!important}
+  table{font-size:12px}
+  th,td{padding:8px 6px!important}
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .btn{font-size:12px;padding:7px 12px}
+  .btn-sm{font-size:11px;padding:5px 9px}
+  #nav-tooltip{display:none}
+  .inv-card,.cc-tab{font-size:12px}
+  input,select,textarea{font-size:16px!important} /* prevent iOS zoom */
+}
 </style>
 </head>
 <body>
+<button id="mobile-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+<div id="mobile-overlay" onclick="document.getElementById('sidebar').classList.remove('open')"></div>
 <div id="sidebar">
   <div class="logo"><h1>СКЛАД / ОБЛІК</h1><p>Система управління</p></div>
   <nav>
@@ -680,6 +712,7 @@ tr:hover td{background:rgba(0,180,255,.04)}
         <button class="btn btn-ghost btn-sm" onclick="printInvoice()">🖨 Друк</button>
         <button class="btn btn-ghost btn-sm" onclick="exportInvoiceUAH()" title="Накладна в гривні (Excel)">↓ Excel ₴</button>
         <button class="btn btn-ghost btn-sm" id="edit-inv-prices-btn" onclick="toggleEditInvPrices()" style="display:none">✏ Ціни</button>
+        <button class="btn btn-ghost btn-sm" id="edit-inv-qty-btn" onclick="toggleEditInvQty()" style="display:none">✏ К-сть</button>
         <button class="btn btn-ghost btn-sm" id="fix-inv-products-btn" onclick="toggleFixInvProducts()" style="display:none;color:var(--warn);border-color:var(--warn)">⚠ Виправити товар</button>
         <button class="btn btn-ghost btn-sm" id="delete-inv-btn" onclick="deleteInvoice()" style="color:var(--danger);border-color:var(--danger)" title="Видалити накладну">🗑</button>
         <button class="modal-close" onclick="closeModal('view-invoice')">✕</button>
@@ -1607,15 +1640,17 @@ function renderFinance(){
     // Also remove negative payments (old format) from paid total
     const actualPaid = (db.payments||[]).filter(p=>p.clientId===c.id && p.amount>0).reduce((s,p)=>s+p.amount,0);
     const balance = actualPaid + ret - sold; // positive = credit, negative = debt
-    const balColor = balance>=0?'var(--accent2)':'var(--danger)';
+    const isPaid = Math.abs(balance) < 0.01;
+    const balColor = isPaid ? 'var(--text2)' : (balance > 0 ? 'var(--accent2)' : 'var(--danger)');
+    const balDisplay = isPaid ? '$0.00' : (balance > 0 ? '+$'+balance.toFixed(2) : '$'+balance.toFixed(2));
     return `<tr>
       <td style="font-weight:500">${c.name}</td>
       <td class="mono">$${sold.toFixed(2)}</td>
       <td class="mono" style="color:var(--accent2)">$${actualPaid.toFixed(2)}</td>
       <td class="mono" style="color:var(--warn)">$${ret.toFixed(2)}</td>
-      <td class="mono" style="color:${balColor};font-weight:500">${balance>=0?'+':''}$${balance.toFixed(2)}</td>
+      <td class="mono" style="color:${balColor};font-weight:500">${balDisplay}</td>
       <td class="mono" style="color:var(--text2)">${c.deferDays||0} дн.</td>
-      <td>${balance>=0?'<span class="badge badge-green">Сплачено</span>':overdue?'<span class="badge badge-red">Прострочено</span>':'<span class="badge badge-warn">Очікується</span>'}</td>
+      <td>${isPaid?'<span class="badge badge-green">Сплачено</span>':balance>0?'<span class="badge badge-green">Переплата</span>':overdue?'<span class="badge badge-red">Прострочено</span>':'<span class="badge badge-warn">Очікується</span>'}</td>
       <td style="display:flex;gap:4px">
         <button class="btn btn-ghost btn-sm" title="Дебіторська заборгованість" onclick="openDebtorReport('${c.id}')">📊</button>
         <button class="btn btn-ghost btn-sm" title="Відтермінування" onclick="openClientFinanceModal('${c.id}')">⚙</button>
@@ -1632,8 +1667,10 @@ function renderFinance(){
   document.getElementById('payments-table').innerHTML = posPayments.length
     ? posPayments.map(p=>{
         const c = clients.find(c=>c.id===p.clientId);
-        const inv = p.invoiceId ? db.invoices.find(i=>i.id===p.invoiceId) : null;
-        const invLabel = inv ? `<span class="badge badge-blue">#${inv.num}</span>` : '<span style="color:var(--text3)">—</span>';
+        const inv = p.invoiceId ? db.invoices.find(i=>String(i.id)===String(p.invoiceId)) : null;
+        const invLabel = inv
+          ? `<span class="badge badge-blue">#${String(inv.num).padStart(4,'0')}</span>`
+          : '<span style="color:var(--text3);font-size:12px">Загальна</span>';
         return `<tr>
           <td>${fmtDate(p.date)}</td>
           <td>${c?c.name:'—'}</td>
@@ -2051,30 +2088,56 @@ function openDebtorReport(clientId){
     const ret = returns_.filter(r=>r.clientId===c.id&&r.type==='return').reduce((s,r)=>s+(r.amount||r.sum||0),0);
     const debt = sold - paid - ret;
     return {c, sold, paid, ret, debt};
-  }).filter(r=>r.debt>0.01||clientId);
+  }).filter(r=>Math.abs(r.debt)>0.01||clientId);
 
   let rowsHtml = '';
   rows.forEach(r=>{
     // Summary row per client
+    const debtColor = r.debt > 0.01 ? 'color:red' : r.debt < -0.01 ? 'color:green' : 'color:gray';
+    const debtText = r.debt < -0.01 ? '+$'+Math.abs(r.debt).toFixed(2) : '$'+r.debt.toFixed(2);
     rowsHtml += '<tr style="background:#f0f4ff">'
       +'<td style="font-weight:700">'+r.c.name+'</td>'
       +'<td style="font-weight:700">$'+r.sold.toFixed(2)+'</td>'
       +'<td style="color:green;font-weight:700">$'+r.paid.toFixed(2)+'</td>'
       +'<td style="color:orange;font-weight:700">$'+r.ret.toFixed(2)+'</td>'
-      +'<td style="color:red;font-weight:700">$'+r.debt.toFixed(2)+'</td></tr>';
+      +'<td style="'+debtColor+';font-weight:700">'+debtText+'</td></tr>';
 
     // Per-invoice rows for this client
     const clientInvs = db.invoices.filter(i=>i.clientId===r.c.id).sort((a,b)=>a.date.localeCompare(b.date));
     const deferDays = r.c.deferDays||0;
-    // FIFO debt distribution
-    const allPaid = payments.filter(p=>p.clientId===r.c.id&&(p.amount||0)>0).reduce((s,p)=>s+(p.amount||0),0);
-    const allRet  = returns_.filter(rv=>rv.clientId===r.c.id&&rv.type==='return').reduce((s,rv)=>s+(rv.sum||0),0);
-    let remaining = allPaid + allRet;
+    // Targeted payments (with invoiceId) go to specific invoices
+    const targetedPayments = {};  // invoiceId -> amount
+    let unattachedPool = 0;
+    payments.filter(p=>p.clientId===r.c.id&&(p.amount||0)>0).forEach(p=>{
+      if(p.invoiceId){
+        const k = String(p.invoiceId);
+        targetedPayments[k] = (targetedPayments[k]||0) + p.amount;
+      } else {
+        unattachedPool += p.amount;
+      }
+    });
+    returns_.filter(rv=>rv.clientId===r.c.id&&rv.type==='return').forEach(rv=>{
+      if(rv.invoiceId){
+        const k = String(rv.invoiceId);
+        targetedPayments[k] = (targetedPayments[k]||0) + (rv.sum||0);
+      } else {
+        unattachedPool += (rv.sum||0);
+      }
+    });
+    let remaining = unattachedPool;
     clientInvs.forEach(inv=>{
       const total = inv.total||0;
-      let invDebt;
-      if(remaining>=total){ invDebt=0; remaining-=total; }
-      else { invDebt=total-remaining; remaining=0; }
+      const targeted = targetedPayments[String(inv.id)] || 0;
+      let invPaid = Math.min(targeted, total);
+      let invRemaining = total - invPaid;
+      // Apply unattached pool to remaining debt
+      if(invRemaining > 0 && remaining > 0){
+        const fromPool = Math.min(remaining, invRemaining);
+        invPaid += fromPool;
+        invRemaining -= fromPool;
+        remaining -= fromPool;
+      }
+      const invDebt = invRemaining;
       const dueDate = deferDays ? new Date(new Date(inv.date).getTime()+deferDays*86400000).toLocaleDateString('uk-UA') : '—';
       const dueDateISO = deferDays ? new Date(new Date(inv.date).getTime()+deferDays*86400000).toISOString().slice(0,10) : null;
       const overdue = dueDateISO && dueDateISO < today();
@@ -2085,7 +2148,8 @@ function openDebtorReport(clientId){
           +' від '+new Date(inv.date).toLocaleDateString('uk-UA')
           +(deferDays?' · термін: '+dueDate:'')+'</td>'
         +'<td style="padding:5px 10px;color:#555">$'+total.toFixed(2)+'</td>'
-        +'<td></td><td></td>'
+        +'<td style="padding:5px 10px;color:green">'+(invPaid>0.01?'$'+invPaid.toFixed(2):'—')+'</td>'
+        +'<td></td>'
         +'<td style="padding:5px 10px;'+debtColor+';font-weight:500">'+debtLabel+'</td>'
         +'</tr>';
     });
@@ -2143,7 +2207,7 @@ function openDebtorReport(clientId){
     +'</div>'
     +'<table><thead><tr><th>Замовник</th><th>Продано</th><th>Оплачено</th><th>Повернення</th><th>Борг</th></tr></thead><tbody>'
     +rowsHtml
-    +'<tr class="total-row"><td>РАЗОМ</td><td>$'+totalSold.toFixed(2)+'</td><td>$'+totalPaid.toFixed(2)+'</td><td>$'+totalRet.toFixed(2)+'</td><td style="color:red">$'+totalDebt.toFixed(2)+'</td></tr>'
+    +'<tr class="total-row"><td>РАЗОМ</td><td>$'+totalSold.toFixed(2)+'</td><td>$'+totalPaid.toFixed(2)+'</td><td>$'+totalRet.toFixed(2)+'</td><td style="color:'+(totalDebt>0.01?'red':totalDebt<-0.01?'green':'gray')+'">'+(totalDebt<-0.01?'+$'+Math.abs(totalDebt).toFixed(2):'$'+totalDebt.toFixed(2))+'</td></tr>'
     +'</tbody></table>'
     +'</body></html>';
   win.document.write(html);
@@ -2855,6 +2919,8 @@ function showPage(name, btn){
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   if(btn) btn.classList.add('active');
+  // Close mobile sidebar on navigation
+  document.getElementById('sidebar').classList.remove('open');
   if(name==='expenses') loadRates();
   const renders = {dashboard:renderDashboard, products:renderProducts, stock:renderStock,
                    invoices:renderInvoices, income:renderIncomes, clients:renderClients,
@@ -3537,6 +3603,8 @@ function viewInvoice(id){
   document.getElementById('view-inv-title').textContent = `Накладна #${String(inv.num).padStart(4,'0')}`;
   document.getElementById('edit-inv-prices-btn').style.display = 'inline-flex';
   document.getElementById('edit-inv-prices-btn').textContent = '✏ Ціни';
+  document.getElementById('edit-inv-qty-btn').style.display = 'inline-flex';
+  document.getElementById('edit-inv-qty-btn').textContent = '✏ К-сть';
   renderViewInvoiceBody(inv, false);
   document.getElementById('modal-view-invoice').classList.add('open');
 }
@@ -3586,8 +3654,11 @@ function renderViewInvoiceBody(inv, editMode, fixMode){
       <tbody>${inv.items.map((item,idx)=>{
         const p = getProduct(item.productId);
         const pack = p?(p.pcsPerPack||1):1;
-        const qtyDisplay = pack>1?(item.packs||1)+' уп. ('+item.qty+' шт)':item.qty+' шт';
-        const priceCell = editMode
+        const qtyDisplay = pack>1?(item.packs||Math.round(item.qty/pack))+' уп. ('+item.qty+' шт)':item.qty+' шт';
+        const qtyCell = editMode==='qty'
+          ? `<input type="number" min="0" step="1" value="${pack>1?(item.packs||Math.round(item.qty/pack)):item.qty}" oninput="updateInvItemQty(${idx},this.value)" style="width:70px;text-align:right;font-size:12px;background:var(--surface2);border:1px solid var(--accent);border-radius:4px;color:var(--text);padding:3px 6px"> ${pack>1?'уп':'шт'}`
+          : qtyDisplay;
+        const priceCell = editMode==='prices'
           ? `<input type="number" step="0.01" value="${item.price}" onchange="updateInvItemPrice(${idx},this.value)" style="width:80px;text-align:right;font-size:12px;background:var(--surface2);border:1px solid var(--accent);border-radius:4px;color:var(--text);padding:3px 6px">`
           : `$${item.price.toFixed(2)}`;
         const isBroken = !p;
@@ -3596,7 +3667,7 @@ function renderViewInvoiceBody(inv, editMode, fixMode){
           : (isBroken ? '<span style="color:var(--warn)">⚠ ?</span>' : (p?p.name:'?'));
         return `<tr style="border-bottom:1px solid rgba(42,47,66,.3)${isBroken?';background:rgba(255,169,64,.05)':''}">
           <td style="padding:10px 0">${productCell}</td>
-          <td style="padding:10px 4px;text-align:right" class="mono">${qtyDisplay}</td>
+          <td style="padding:10px 4px;text-align:right" class="mono">${qtyCell}</td>
           <td style="padding:10px 4px;text-align:right" class="mono">${priceCell}</td>
           <td style="padding:10px 0;text-align:right;color:var(--accent2)" class="mono inv-item-sum">$${item.sum.toFixed(2)}</td>
         </tr>`;
@@ -3606,9 +3677,13 @@ function renderViewInvoiceBody(inv, editMode, fixMode){
       <span style="font-size:13px;color:var(--text2)">Всього:</span>
       <span style="font-size:18px;font-weight:600;color:var(--accent2)" class="mono" id="view-inv-total">$${inv.total.toFixed(2)}</span>
     </div>
-    ${editMode?`<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+    ${editMode==='prices'?`<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
       <button class="btn btn-ghost" onclick="renderViewInvoiceBody(db._printInv,false,false);document.getElementById('edit-inv-prices-btn').textContent='✏ Ціни'">Скасувати</button>
       <button class="btn btn-primary" onclick="saveInvPrices()">Зберегти ціни</button>
+    </div>`:''}
+    ${editMode==='qty'?`<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+      <button class="btn btn-ghost" onclick="renderViewInvoiceBody(db._printInv,false,false);document.getElementById('edit-inv-qty-btn').textContent='✏ К-сть'">Скасувати</button>
+      <button class="btn btn-primary" onclick="saveInvQty()">Зберегти кількість</button>
     </div>`:''}
     ${fixMode?`<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
       <button class="btn btn-ghost" onclick="renderViewInvoiceBody(db._printInv,false,false);document.getElementById('fix-inv-products-btn').textContent='⚠ Виправити товар'">Скасувати</button>
@@ -3619,8 +3694,50 @@ function renderViewInvoiceBody(inv, editMode, fixMode){
 function toggleEditInvPrices(){
   const inv = db._printInv;
   const isEdit = !!document.querySelector('#view-inv-table input[type="number"]');
-  renderViewInvoiceBody(inv, !isEdit, false);
+  renderViewInvoiceBody(inv, isEdit?false:'prices', false);
   document.getElementById('edit-inv-prices-btn').textContent = isEdit ? '✏ Ціни' : '✏ Редагування...';
+}
+
+function toggleEditInvQty(){
+  const inv = db._printInv;
+  const isEdit = !!document.querySelector('#view-inv-table input[type="number"]');
+  renderViewInvoiceBody(inv, isEdit?false:'qty', false);
+  document.getElementById('edit-inv-qty-btn').textContent = isEdit ? '✏ К-сть' : '✏ Редагування...';
+}
+
+function updateInvItemQty(idx, val){
+  const inv = db._printInv;
+  const p = getProduct(inv.items[idx].productId);
+  const pack = p?(p.pcsPerPack||1):1;
+  const num = parseInt(val)||0;
+  if(pack>1){
+    inv.items[idx].packs = num;
+    inv.items[idx].qty = num * pack;
+  } else {
+    inv.items[idx].qty = num;
+  }
+  inv.items[idx].sum = inv.items[idx].qty * inv.items[idx].price;
+  inv.total = inv.items.reduce((s,i)=>s+i.sum,0);
+  const el = document.getElementById('view-inv-total');
+  if(el) el.textContent = '$'+inv.total.toFixed(2);
+  const rows = document.querySelectorAll('#view-inv-table tbody tr');
+  if(rows[idx]) rows[idx].querySelector('.inv-item-sum').textContent = '$'+inv.items[idx].sum.toFixed(2);
+}
+
+async function saveInvQty(){
+  const inv = db._printInv;
+  // Remove items with qty 0
+  inv.items = inv.items.filter(it=>(it.qty||0)>0);
+  inv.total = inv.items.reduce((s,i)=>s+i.sum,0);
+  const invs = db.invoices;
+  const i = invs.findIndex(i=>i.id===inv.id);
+  if(i>=0) invs[i] = inv;
+  db.invoices = invs;
+  await fbSaveAll({invoices: invs});
+  renderViewInvoiceBody(inv, false, false);
+  document.getElementById('edit-inv-qty-btn').textContent = '✏ К-сть';
+  renderInvoices(); renderDashboard();
+  notify('Кількість оновлено');
 }
 
 function toggleFixInvProducts(){
@@ -3691,8 +3808,16 @@ function saveInvPrices(){
 
 function printInvoice(){
   const inv = db._printInv;
-  if(!inv) return;
-  const c = db.clients.find(c=>c.id===inv.clientId);
+  console.log('printInvoice called, _printInv:', inv);
+  if(!inv){
+    alert('Помилка: накладна не вибрана');
+    return;
+  }
+  if(!inv.items || !inv.items.length){
+    alert('Помилка: накладна порожня');
+    return;
+  }
+  const c = db.clients.find(c=>String(c.id)===String(inv.clientId));
   const rows = inv.items.map((item,i)=>{
     const p = getProduct(item.productId);
     const pack = p?(p.pcsPerPack||1):1;
@@ -3707,7 +3832,14 @@ function printInvoice(){
     </tr>`;
   }).join('');
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Накладна #${String(inv.num).padStart(4,'0')}</title>
-<style>${PAGE_CSS}th.center{text-align:center}th.right{text-align:right}</style></head>
+<style>
+body{font-family:Arial,sans-serif;color:#000;font-size:9pt;padding:8mm 12mm;margin:0}
+table{width:100%;border-collapse:collapse;font-size:9pt;margin-top:8px}
+th{background:#000;color:#fff;padding:7px 10px;text-align:left}
+td{padding:6px 10px;border-bottom:1px solid #eee;vertical-align:top}
+th.center{text-align:center}th.right{text-align:right}
+@media print{body{padding:8mm 12mm}.no-print{display:none}@page{margin:8mm 12mm;size:A4 portrait}}
+</style></head>
 <body>
 <div class="no-print" style="text-align:right;margin-bottom:10px">
   <button onclick="window.print()" style="padding:6px 18px;background:#1a3a6b;color:#fff;border:none;border-radius:4px;cursor:pointer">🖨 Друк</button>
@@ -3745,10 +3877,9 @@ function printInvoice(){
   <span>Дата: ____________________</span>
 </div>
 </body></html>`;
-  const pa = document.getElementById('print-area');
-  pa.innerHTML = html;
-  pa.style.display = 'block';
-  setTimeout(()=>{ window.print(); pa.style.display = 'none'; }, 150);
+  const win = window.open('','_blank','width=900,height=700');
+  win.document.write(html);
+  win.document.close();
 }
 
 // ============================================================
@@ -5031,38 +5162,39 @@ async function exportInvoiceUAH(){
   const HDR={font:{bold:true,sz:10,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A6B'}},alignment:{horizontal:'center',vertical:'center'},border:BDR('0D2A55')};
   const HDRL={...HDR,alignment:{horizontal:'left'}};
 
-  const COLS=['№','Назва товару','К-сть','Ціна (₴)','Сума (₴)'];
+  const COLS=['№','Назва товару','К-сть','Ціна за 1 шт (₴)','Ціна за уп. (₴)','Сума (₴)'];
 
   let totalUAH=0;
   const dataRows=inv.items.map((item,idx)=>{
     const p=getProduct(item.productId);
     const pack=p?(p.pcsPerPack||1):1;
     const qtyLabel=pack>1?(item.packs||Math.round(item.qty/pack))+' уп. ('+item.qty+' шт)':item.qty+' шт';
-    const priceUAH=parseFloat((item.price*rateUAH).toFixed(2));
+    const pricePackUAH=parseFloat((item.price*rateUAH).toFixed(2));
+    const pricePcsUAH=parseFloat(((item.price/pack)*rateUAH).toFixed(2));
     const sumUAH=parseFloat((item.sum*rateUAH).toFixed(2));
     totalUAH+=sumUAH;
-    return [idx+1, p?p.name:'?', qtyLabel, priceUAH, sumUAH];
+    return [idx+1, p?p.name:'?', qtyLabel, pricePcsUAH, pricePackUAH, sumUAH];
   });
 
   const invNum='#'+String(inv.num).padStart(4,'0');
   const aoa=[
-    [`ВИДАТКОВА НАКЛАДНА ${invNum}`,...Array(4).fill(null)],
-    [`Дата: ${invDate}`,...Array(4).fill(null)],
-    [`Замовник: ${c?c.name:'—'}`,...Array(4).fill(null)],
-    [c&&c.address?`Адреса: ${c.address}`:'',...Array(4).fill(null)],
-    Array(5).fill(null),
+    [`ВИДАТКОВА НАКЛАДНА ${invNum}`,...Array(5).fill(null)],
+    [`Дата: ${invDate}`,...Array(5).fill(null)],
+    [`Замовник: ${c?c.name:'—'}`,...Array(5).fill(null)],
+    [c&&c.address?`Адреса: ${c.address}`:'',...Array(5).fill(null)],
+    Array(6).fill(null),
     COLS,
     ...dataRows,
-    ['','','РАЗОМ:','',parseFloat(totalUAH.toFixed(2))],
+    ['','','','','РАЗОМ:',parseFloat(totalUAH.toFixed(2))],
   ];
 
   const ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols']=[{wch:5},{wch:48},{wch:14},{wch:13},{wch:14}];
+  ws['!cols']=[{wch:5},{wch:48},{wch:14},{wch:15},{wch:15},{wch:14}];
   ws['!merges']=[
-    {s:{r:0,c:0},e:{r:0,c:4}},
-    {s:{r:1,c:0},e:{r:1,c:4}},
-    {s:{r:2,c:0},e:{r:2,c:4}},
-    {s:{r:3,c:0},e:{r:3,c:4}},
+    {s:{r:0,c:0},e:{r:0,c:5}},
+    {s:{r:1,c:0},e:{r:1,c:5}},
+    {s:{r:2,c:0},e:{r:2,c:5}},
+    {s:{r:3,c:0},e:{r:3,c:5}},
   ];
   ws['!rows']=[{hpt:24},null,null,null,{hpt:6},{hpt:18}];
 
@@ -5092,7 +5224,7 @@ async function exportInvoiceUAH(){
   COLS.forEach((_,ci)=>{
     const a=XLSX.utils.encode_cell({r:tr,c:ci}); if(!ws[a]) return;
     ws[a].s={font:{bold:true,sz:11,color:{rgb:'1A2A4A'}},fill:{fgColor:{rgb:'D8E8FF'}},alignment:{horizontal:ci>=3?'right':'left'},border:BDR('1A3A6B')};
-    if(ci===4) ws[a].z='#,##0.00" ₴"';
+    if(ci===5) ws[a].z='#,##0.00" ₴"';
   });
   // Note row
   const nr=tr+1;
@@ -5102,8 +5234,8 @@ async function exportInvoiceUAH(){
   // Sign block rows
   const signRow=nr+2;
   ws[XLSX.utils.encode_cell({r:signRow,c:0})]={v:'Відвантажив: ____________________',t:'s'};
-  ws[XLSX.utils.encode_cell({r:signRow,c:3})]={v:'Отримав: ____________________',t:'s'};
-  [0,3].forEach(ci=>{
+  ws[XLSX.utils.encode_cell({r:signRow,c:4})]={v:'Отримав: ____________________',t:'s'};
+  [0,4].forEach(ci=>{
     const a=XLSX.utils.encode_cell({r:signRow,c:ci});
     if(ws[a]) ws[a].s={font:{sz:10,color:{rgb:'333333'}},alignment:{horizontal:'left'}};
   });
