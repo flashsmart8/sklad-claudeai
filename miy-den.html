@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Мій день</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0d1117;
+  --surface:rgba(255,255,255,0.04);
+  --border:rgba(255,255,255,0.08);
+  --text:rgba(255,255,255,0.9);
+  --muted:rgba(255,255,255,0.4);
+  --dim:rgba(255,255,255,0.2);
+  --green:#7defa0;
+  --blue:#64aaff;
+  --amber:#ffbe64;
+  --purple:#c896ff;
+  --red:#ff7070;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Jost',sans-serif;overflow:hidden}
+.app{max-width:430px;margin:0 auto;height:100vh;display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+.screen{display:none;flex-direction:column;height:100%;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.screen.active{display:flex}
+
+.hero{position:relative;height:320px;min-height:320px;overflow:hidden;border-radius:0 0 28px 28px;flex-shrink:0}
+.hero-img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;opacity:0;transition:opacity 1s ease}
+.hero-img.loaded{opacity:1}
+.hero-skeleton{position:absolute;inset:0;background:linear-gradient(135deg,#1a2a3a,#2d4a3e);display:flex;align-items:center;justify-content:center;transition:opacity 0.8s}
+.spinner{width:24px;height:24px;border:2px solid rgba(255,255,255,0.1);border-top-color:rgba(255,255,255,0.5);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.05) 0%,rgba(13,17,23,0.9) 100%);z-index:1}
+.hero-content{position:absolute;bottom:0;left:0;right:0;padding:20px 22px 24px;z-index:2}
+.time-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.12);backdrop-filter:blur(10px);border:0.5px solid rgba(255,255,255,0.2);border-radius:20px;padding:4px 12px 4px 8px;font-size:11.5px;font-weight:300;letter-spacing:0.05em;color:rgba(255,255,255,0.85);margin-bottom:10px}
+.pulse-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.greeting-sub{font-size:11px;font-weight:300;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:3px}
+.greeting-main{font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:300;line-height:1.1;color:#fff}
+.greeting-main em{font-style:italic;color:rgba(255,255,255,0.8)}
+.weather-row{margin-top:8px;display:flex;align-items:center;gap:10px}
+.weather-temp{font-size:22px;font-weight:300}
+.weather-desc{font-size:13px;font-weight:300;color:var(--muted)}
+.photo-credit{position:absolute;bottom:4px;right:8px;font-size:8.5px;color:rgba(255,255,255,0.15);z-index:3;letter-spacing:0.02em}
+.photo-credit a{color:inherit;text-decoration:none}
+
+.cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:22px 18px 0}
+.acard{border-radius:20px;padding:18px 16px;cursor:pointer;position:relative;overflow:hidden;transition:transform 0.15s;border:0.5px solid rgba(255,255,255,0.07)}
+.acard:active{transform:scale(0.95)}
+.acard-write{background:linear-gradient(135deg,#1c3a2e,#0f2420);box-shadow:0 8px 28px rgba(0,0,0,0.45),inset 0 1px 0 rgba(255,255,255,0.06)}
+.acard-talk{background:linear-gradient(135deg,#1e2d44,#111e30);box-shadow:0 8px 28px rgba(0,0,0,0.45),inset 0 1px 0 rgba(255,255,255,0.06)}
+.acard-mood{background:linear-gradient(135deg,#3a2418,#241508);box-shadow:0 8px 28px rgba(0,0,0,0.45),inset 0 1px 0 rgba(255,255,255,0.06)}
+.acard-remind{background:linear-gradient(135deg,#2a1f38,#1a1026);box-shadow:0 8px 28px rgba(0,0,0,0.45),inset 0 1px 0 rgba(255,255,255,0.06)}
+.acard-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:19px}
+.ic-write{background:rgba(125,239,160,0.12);color:var(--green)}
+.ic-talk{background:rgba(100,170,255,0.12);color:var(--blue)}
+.ic-mood{background:rgba(255,190,100,0.12);color:var(--amber)}
+.ic-remind{background:rgba(200,150,255,0.12);color:var(--purple)}
+.acard-title{font-size:14px;font-weight:400;color:var(--text);margin-bottom:3px}
+.acard-hint{font-size:11.5px;font-weight:300;color:var(--muted);line-height:1.4}
+
+.today-wrap{padding:24px 18px 0}
+.section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-lbl{font-size:10.5px;font-weight:400;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted)}
+.section-more{font-size:12px;color:var(--dim);cursor:pointer}
+.event-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:0.5px solid var(--border);border-radius:14px;margin-bottom:8px;cursor:pointer;transition:background 0.15s}
+.event-item:hover{background:rgba(255,255,255,0.07)}
+.ev-time{min-width:48px;text-align:center}
+.ev-h{font-size:14px;font-weight:400;line-height:1.2;font-variant-numeric:tabular-nums}
+.ev-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.ev-body{flex:1}
+.ev-name{font-size:13.5px;font-weight:400;color:var(--text);margin-bottom:2px}
+.ev-meta{font-size:11.5px;font-weight:300;color:var(--muted)}
+
+.bottom-nav{display:flex;justify-content:space-around;align-items:center;padding:14px 12px 20px;border-top:0.5px solid var(--border);flex-shrink:0;background:var(--bg)}
+.nav-btn{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;opacity:0.35;transition:opacity 0.15s;border:none;background:none;color:#fff;padding:4px 12px}
+.nav-btn.active{opacity:1}
+.nav-btn i{font-size:22px}
+.nav-lbl{font-size:10px;font-weight:300;letter-spacing:0.05em;color:rgba(255,255,255,0.8)}
+
+.screen-header{padding:24px 18px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.screen-title{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:300;flex:1}
+.icon-btn{width:38px;height:38px;border-radius:12px;border:0.5px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);font-size:18px;transition:background 0.15s;flex-shrink:0}
+.icon-btn:hover{background:rgba(255,255,255,0.08)}
+
+.notes-list{padding:0 18px;flex:1}
+.note-card{background:var(--surface);border:0.5px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:background 0.15s;position:relative}
+.note-card:hover{background:rgba(255,255,255,0.07)}
+.note-card-text{font-size:14px;font-weight:300;line-height:1.6;color:var(--text);margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+.note-card-date{font-size:11px;color:var(--muted)}
+.note-del{position:absolute;top:10px;right:10px;width:28px;height:28px;border-radius:8px;border:none;background:rgba(255,100,100,0.1);color:var(--red);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.15s}
+.note-card:hover .note-del{opacity:1}
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted);font-size:14px;font-weight:300;line-height:1.8}
+.empty-icon{font-size:40px;margin-bottom:16px;opacity:0.3}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.25s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal-sheet{background:#161b22;border-radius:24px 24px 0 0;padding:20px 20px 28px;width:100%;max-width:430px;transform:translateY(100%);transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1)}
+.modal-overlay.open .modal-sheet{transform:translateY(0)}
+.modal-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,0.15);margin:0 auto 16px}
+.modal-title{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:300;margin-bottom:16px}
+textarea{width:100%;background:var(--surface);border:0.5px solid var(--border);border-radius:14px;padding:14px;color:var(--text);font-family:'Jost',sans-serif;font-size:14px;font-weight:300;line-height:1.7;resize:none;min-height:140px;outline:none;transition:border-color 0.2s}
+textarea:focus{border-color:rgba(255,255,255,0.25)}
+.modal-actions{display:flex;gap:10px;margin-top:14px}
+.btn-primary{flex:1;padding:13px;border-radius:14px;border:none;background:rgba(255,255,255,0.1);color:#fff;font-family:'Jost',sans-serif;font-size:14px;font-weight:400;cursor:pointer;transition:background 0.15s}
+.btn-primary:hover{background:rgba(255,255,255,0.15)}
+.btn-cancel{padding:13px 20px;border-radius:14px;border:0.5px solid var(--border);background:none;color:var(--muted);font-family:'Jost',sans-serif;font-size:14px;cursor:pointer}
+
+.voice-area{text-align:center;padding:20px 0 24px}
+.voice-btn{width:80px;height:80px;border-radius:50%;border:none;cursor:pointer;background:rgba(100,170,255,0.15);color:var(--blue);font-size:34px;display:flex;align-items:center;justify-content:center;margin:0 auto;transition:all 0.2s;border:0.5px solid rgba(100,170,255,0.25)}
+.voice-btn:active{transform:scale(0.92)}
+.voice-btn.recording{background:rgba(255,100,100,0.2);color:var(--red);border-color:rgba(255,100,100,0.4);animation:pulse-record 1.2s ease-in-out infinite}
+@keyframes pulse-record{0%,100%{box-shadow:0 0 0 0 rgba(255,100,100,0.4)}50%{box-shadow:0 0 0 18px rgba(255,100,100,0)}}
+.voice-status{margin-top:14px;font-size:13px;font-weight:300;color:var(--muted);min-height:18px;letter-spacing:0.02em}
+
+.mood-today{padding:0 18px 20px;flex-shrink:0}
+.mood-prompt{font-size:14px;font-weight:300;color:var(--muted);margin-bottom:16px}
+.mood-emojis{display:flex;gap:10px;justify-content:space-between}
+.mood-btn{flex:1;padding:16px 8px;border-radius:16px;border:0.5px solid var(--border);background:var(--surface);cursor:pointer;text-align:center;transition:all 0.15s;font-size:26px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.mood-btn:hover,.mood-btn.selected{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);transform:scale(1.04)}
+.mood-btn span{font-size:10px;font-weight:300;color:var(--muted)}
+
+.mood-history{padding:0 18px;flex:1}
+.mood-chart{margin-bottom:20px}
+.chart-bars{display:flex;align-items:flex-end;gap:6px;height:90px;margin-bottom:8px}
+.bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bar{width:100%;border-radius:6px 6px 0 0;min-height:4px;transition:height 0.4s ease}
+.bar-label{font-size:10px;color:var(--muted);font-weight:300}
+.mood-log-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface);border:0.5px solid var(--border);border-radius:12px;margin-bottom:8px}
+.mood-log-emoji{font-size:22px}
+.mood-log-body{flex:1}
+.mood-log-name{font-size:13px;font-weight:400}
+.mood-log-date{font-size:11px;color:var(--muted);font-weight:300}
+
+.remind-list{padding:0 18px;flex:1}
+.remind-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:0.5px solid var(--border);border-radius:14px;margin-bottom:8px;transition:background 0.15s}
+.remind-item.done{opacity:0.4}
+.remind-item.done .remind-name{text-decoration:line-through}
+.remind-check{width:22px;height:22px;border-radius:7px;border:1.5px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;color:transparent}
+.remind-check.checked{background:var(--green);border-color:var(--green);color:#0d1117}
+.remind-body{flex:1}
+.remind-name{font-size:13.5px;font-weight:400;color:var(--text);margin-bottom:2px}
+.remind-time{font-size:11.5px;color:var(--muted);font-weight:300}
+.remind-del{width:28px;height:28px;border-radius:8px;border:none;background:rgba(255,100,100,0.08);color:var(--red);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+input[type=text],input[type=datetime-local]{width:100%;background:var(--surface);border:0.5px solid var(--border);border-radius:14px;padding:12px 14px;color:var(--text);font-family:'Jost',sans-serif;font-size:14px;font-weight:300;outline:none;margin-bottom:10px;transition:border-color 0.2s}
+input:focus{border-color:rgba(255,255,255,0.25)}
+input[type=datetime-local]{color-scheme:dark}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="screen active" id="screen-home">
+  <div class="hero">
+    <div class="hero-skeleton" id="skeleton"><div class="spinner"></div></div>
+    <img class="hero-img" id="heroImg" alt="">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div class="time-badge"><div class="pulse-dot"></div><span id="timeBadge"></span></div>
+      <div class="greeting-sub" id="greetingSub">Вітаємо</div>
+      <div class="greeting-main" id="greetingMain">Доброго ранку,<br><em>Валерій</em></div>
+      <div class="weather-row">
+        <span class="weather-temp" id="wTemp">—°</span>
+        <span class="weather-desc" id="wDesc">визначаю погоду…</span>
+      </div>
+    </div>
+    <div class="photo-credit" id="photoCredit"></div>
+  </div>
+
+  <div class="cards-grid">
+    <div class="acard acard-write" onclick="openNoteModal()">
+      <div class="acard-icon ic-write"><i class="ti ti-pencil"></i></div>
+      <div class="acard-title">Записати</div>
+      <div class="acard-hint">думки, нотатки, ідеї</div>
+    </div>
+    <div class="acard acard-talk" onclick="openVoiceModal()">
+      <div class="acard-icon ic-talk"><i class="ti ti-microphone"></i></div>
+      <div class="acard-title">Поговорити</div>
+      <div class="acard-hint">голосова нотатка</div>
+    </div>
+    <div class="acard acard-mood" onclick="goScreen('mood')">
+      <div class="acard-icon ic-mood"><i class="ti ti-heart"></i></div>
+      <div class="acard-title">Настрій</div>
+      <div class="acard-hint">як ти зараз?</div>
+    </div>
+    <div class="acard acard-remind" onclick="goScreen('remind')">
+      <div class="acard-icon ic-remind"><i class="ti ti-bell"></i></div>
+      <div class="acard-title">Нагадати</div>
+      <div class="acard-hint">встановити нагадування</div>
+    </div>
+  </div>
+
+  <div class="today-wrap">
+    <div class="section-hdr">
+      <div class="section-lbl">Сьогодні</div>
+      <div class="section-more" onclick="goScreen('remind')">Нагадування →</div>
+    </div>
+    <div id="todayList"></div>
+  </div>
+  <div style="height:20px"></div>
+</div>
+
+<div class="screen" id="screen-notes">
+  <div class="screen-header">
+    <div class="screen-title">Нотатки</div>
+    <div class="icon-btn" onclick="openVoiceModal()" title="Голосом"><i class="ti ti-microphone"></i></div>
+    <div class="icon-btn" onclick="openNoteModal()"><i class="ti ti-plus"></i></div>
+  </div>
+  <div class="notes-list" id="notesList"></div>
+</div>
+
+<div class="screen" id="screen-mood">
+  <div class="screen-header">
+    <div class="screen-title">Настрій</div>
+  </div>
+  <div class="mood-today">
+    <div class="mood-prompt">Як ти почуваєшся зараз?</div>
+    <div class="mood-emojis">
+      <div class="mood-btn" onclick="logMood('😔','Сумно')" data-m="😔"><div>😔</div><span>Сумно</span></div>
+      <div class="mood-btn" onclick="logMood('😐','Нейтрально')" data-m="😐"><div>😐</div><span>Нейтрально</span></div>
+      <div class="mood-btn" onclick="logMood('🙂','Добре')" data-m="🙂"><div>🙂</div><span>Добре</span></div>
+      <div class="mood-btn" onclick="logMood('😊','Чудово')" data-m="😊"><div>😊</div><span>Чудово</span></div>
+      <div class="mood-btn" onclick="logMood('🤩','Відмінно')" data-m="🤩"><div>🤩</div><span>Відмінно</span></div>
+    </div>
+  </div>
+  <div class="mood-history">
+    <div class="section-hdr" style="margin-bottom:10px">
+      <div class="section-lbl">Тиждень</div>
+    </div>
+    <div class="mood-chart">
+      <div class="chart-bars" id="moodChart"></div>
+    </div>
+    <div class="section-hdr" style="margin-top:8px;margin-bottom:12px">
+      <div class="section-lbl">Останні записи</div>
+    </div>
+    <div id="moodLog"></div>
+  </div>
+</div>
+
+<div class="screen" id="screen-remind">
+  <div class="screen-header">
+    <div class="screen-title">Нагадування</div>
+    <div class="icon-btn" onclick="openRemindModal()"><i class="ti ti-plus"></i></div>
+  </div>
+  <div class="remind-list" id="remindList"></div>
+</div>
+
+<div class="bottom-nav">
+  <button class="nav-btn active" onclick="goScreen('home')" id="nav-home">
+    <i class="ti ti-home"></i><span class="nav-lbl">Головна</span>
+  </button>
+  <button class="nav-btn" onclick="goScreen('notes')" id="nav-notes">
+    <i class="ti ti-notebook"></i><span class="nav-lbl">Нотатки</span>
+  </button>
+  <button class="nav-btn" onclick="goScreen('mood')" id="nav-mood">
+    <i class="ti ti-heart"></i><span class="nav-lbl">Настрій</span>
+  </button>
+  <button class="nav-btn" onclick="goScreen('remind')" id="nav-remind">
+    <i class="ti ti-bell"></i><span class="nav-lbl">Нагадування</span>
+  </button>
+</div>
+
+<div class="modal-overlay" id="noteModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Нова нотатка</div>
+    <textarea id="noteText" placeholder="Що ти хочеш записати?" rows="6"></textarea>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('noteModal')">Скасувати</button>
+      <button class="btn-primary" onclick="saveNote()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="voiceModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Поговорити</div>
+    <div class="voice-area">
+      <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">
+        <i class="ti ti-microphone"></i>
+      </button>
+      <div class="voice-status" id="voiceStatus">Натисни і говори українською</div>
+    </div>
+    <textarea id="voiceText" placeholder="Транскрипція з’явиться тут. Можна редагувати." rows="4"></textarea>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="cancelVoice()">Скасувати</button>
+      <button class="btn-primary" onclick="saveVoiceNote()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="remindModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Нове нагадування</div>
+    <input type="text" id="remindText" placeholder="Що нагадати?">
+    <input type="datetime-local" id="remindTime">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('remindModal')">Скасувати</button>
+      <button class="btn-primary" onclick="saveRemind()">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const UNSPLASH_KEY = 'GZEKr8azeCEWe2xT2-tcESWMEjXnW7y4xnW56oJFZJo';
+
+const timeOfDay = () => {
+  const h = new Date().getHours();
+  if(h>=5&&h<10)  return{g:'Доброго ранку',sub:'Ранок',q:'mountain sunrise mist alpine'};
+  if(h>=10&&h<13) return{g:'Доброго ранку',sub:'Перша половина дня',q:'mountain morning sunlight meadow'};
+  if(h>=13&&h<17) return{g:'Доброго дня',sub:'День',q:'mountain valley summer green'};
+  if(h>=17&&h<21) return{g:'Доброго вечора',sub:'Вечір',q:'mountain sunset golden hour'};
+  return{g:'Добраніч',sub:'Ніч',q:'mountain night stars milky way'};
+};
+
+const formatClock = () => {
+  const n=new Date();
+  const H=String(n.getHours()).padStart(2,'0');
+  const M=String(n.getMinutes()).padStart(2,'0');
+  const days=['неділя','понеділок','вівторок','середа','четвер','п\'ятниця','субота'];
+  const months=['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня'];
+  return`${days[n.getDay()]}, ${n.getDate()} ${months[n.getMonth()]} · ${H}:${M}`;
+};
+
+function initGreeting(){
+  const tod=timeOfDay();
+  document.getElementById('timeBadge').textContent=formatClock();
+  document.getElementById('greetingSub').textContent=tod.sub;
+  document.getElementById('greetingMain').innerHTML=`${tod.g},<br><em>Валерій</em>`;
+}
+setInterval(()=>{document.getElementById('timeBadge').textContent=formatClock();},30000);
+
+async function loadPhoto(){
+  const tod=timeOfDay();
+  try{
+    const r=await fetch(`https://api.unsplash.com/photos/random?query=${encodeURIComponent(tod.q)}&orientation=landscape&client_id=${UNSPLASH_KEY}`);
+    const d=await r.json();
+    if(d&&d.urls){
+      const img=document.getElementById('heroImg');
+      img.onload=()=>{
+        img.classList.add('loaded');
+        document.getElementById('skeleton').style.opacity='0';
+        setTimeout(()=>document.getElementById('skeleton').style.display='none',800);
+      };
+      img.src=d.urls.regular;
+      const name=d.user?.name||'Unsplash';
+      const link=d.links?.html||'https://unsplash.com';
+      document.getElementById('photoCredit').innerHTML=`<a href="${link}" target="_blank">${name}</a>`;
+    }
+  }catch(e){}
+}
+
+async function loadWeather(){
+  try{
+    const geo=await(await fetch('https://ipapi.co/json/')).json();
+    const lat=geo.latitude||49.84, lon=geo.longitude||24.03, city=geo.city||'Львів';
+    const w=await(await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)).json();
+    const temp=Math.round(w.current_weather?.temperature??0);
+    const codes={0:'ясно',1:'майже ясно',2:'мінлива хмарність',3:'похмуро',45:'туман',51:'мряка',61:'дощ',63:'помірний дощ',65:'сильний дощ',71:'сніг',80:'зливи',95:'гроза'};
+    const desc=codes[w.current_weather?.weathercode]||'змінна хмарність';
+    document.getElementById('wTemp').textContent=`${temp}°`;
+    document.getElementById('wDesc').textContent=`${desc} · ${city}`;
+  }catch(e){
+    document.getElementById('wDesc').textContent='погода недоступна';
+  }
+}
+
+let currentScreen='home';
+function goScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.getElementById('nav-'+name)?.classList.add('active');
+  currentScreen=name;
+  if(name==='notes') renderNotes();
+  if(name==='mood'){renderMoodChart();renderMoodLog();}
+  if(name==='remind') renderReminders();
+  if(name==='home') renderToday();
+}
+
+const load=(k,def)=>{try{return JSON.parse(localStorage.getItem(k))||def;}catch{return def;}};
+const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+
+// ===== NOTES =====
+let notes=load('myd_notes',[]);
+function openNoteModal(){document.getElementById('noteText').value='';openModal('noteModal');}
+function saveNote(){
+  const t=document.getElementById('noteText').value.trim();
+  if(!t){closeModal('noteModal');return;}
+  notes.unshift({id:Date.now(),text:t,date:new Date().toISOString()});
+  save('myd_notes',notes);
+  closeModal('noteModal');
+  if(currentScreen==='notes')renderNotes();
+}
+function deleteNote(id){
+  notes=notes.filter(n=>n.id!==id);
+  save('myd_notes',notes);
+  renderNotes();
+}
+function renderNotes(){
+  const el=document.getElementById('notesList');
+  if(!notes.length){
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon"><i class="ti ti-notebook"></i></div>Нотатки відсутні.<br>Натисни + щоб створити першу.</div>`;
+    return;
+  }
+  el.innerHTML=notes.map(n=>{
+    const d=new Date(n.date);
+    const ds=d.toLocaleDateString('uk-UA',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
+    const preview=n.text.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return`<div class="note-card">
+      <div class="note-card-text">${preview}</div>
+      <div class="note-card-date">${ds}</div>
+      <button class="note-del" onclick="deleteNote(${n.id})"><i class="ti ti-trash"></i></button>
+    </div>`;
+  }).join('');
+}
+
+// ===== VOICE =====
+let recognition=null;
+let isRecording=false;
+
+function openVoiceModal(){
+  document.getElementById('voiceText').value='';
+  document.getElementById('voiceStatus').textContent='Натисни і говори українською';
+  document.getElementById('voiceBtn').classList.remove('recording');
+  openModal('voiceModal');
+}
+
+function toggleVoice(){
+  if(isRecording){
+    stopVoice();
+  }else{
+    startVoice();
+  }
+}
+
+function startVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){
+    document.getElementById('voiceStatus').textContent='Голосовий ввід не підтримується. Введи текст вручну.';
+    return;
+  }
+  try{
+    recognition=new SR();
+    recognition.lang='uk-UA';
+    recognition.continuous=false;
+    recognition.interimResults=true;
+    recognition.maxAlternatives=1;
+
+    recognition.onstart=()=>{
+      isRecording=true;
+      document.getElementById('voiceStatus').textContent='Слухаю...';
+      document.getElementById('voiceBtn').classList.add('recording');
+    };
+
+    recognition.onresult=(event)=>{
+      let final='', interim='';
+      for(let i=event.resultIndex;i<event.results.length;i++){
+        const t=event.results[i][0].transcript;
+        if(event.results[i].isFinal)final+=t;
+        else interim+=t;
+      }
+      const ta=document.getElementById('voiceText');
+      if(final){
+        ta.value=(ta.value+' '+final).trim();
+      }
+      if(interim){
+        document.getElementById('voiceStatus').textContent=interim.slice(0,60);
+      }
+    };
+
+    recognition.onend=()=>{
+      isRecording=false;
+      document.getElementById('voiceBtn').classList.remove('recording');
+      document.getElementById('voiceStatus').textContent=document.getElementById('voiceText').value?'Готово. Натисни щоб додати ще.':'Натисни і говори';
+    };
+
+    recognition.onerror=(e)=>{
+      isRecording=false;
+      document.getElementById('voiceBtn').classList.remove('recording');
+      const errors={
+        'not-allowed':'Дозволь доступ до мікрофона в налаштуваннях',
+        'no-speech':'Нічого не почув, спробуй ще',
+        'aborted':'Скасовано',
+        'network':'Немає інтернету'
+      };
+      document.getElementById('voiceStatus').textContent=errors[e.error]||('Помилка: '+e.error);
+    };
+
+    recognition.start();
+  }catch(e){
+    document.getElementById('voiceStatus').textContent='Не вдалось запустити мікрофон';
+  }
+}
+
+function stopVoice(){
+  if(recognition){
+    try{recognition.stop();}catch{}
+  }
+  isRecording=false;
+  document.getElementById('voiceBtn').classList.remove('recording');
+}
+
+function cancelVoice(){
+  stopVoice();
+  closeModal('voiceModal');
+}
+
+function saveVoiceNote(){
+  const t=document.getElementById('voiceText').value.trim();
+  stopVoice();
+  if(!t){closeModal('voiceModal');return;}
+  notes.unshift({id:Date.now(),text:'🎙️ '+t,date:new Date().toISOString()});
+  save('myd_notes',notes);
+  closeModal('voiceModal');
+  if(currentScreen==='notes')renderNotes();
+}
+
+// ===== MOOD =====
+const MOODS=[
+  {e:'😔',n:'Сумно',v:1,c:'#ff7070'},
+  {e:'😐',n:'Нейтрально',v:2,c:'#888'},
+  {e:'🙂',n:'Добре',v:3,c:'#ffbe64'},
+  {e:'😊',n:'Чудово',v:4,c:'#64aaff'},
+  {e:'🤩',n:'Відмінно',v:5,c:'#7defa0'}
+];
+let moods=load('myd_moods',[]);
+
+function logMood(emoji,name){
+  document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('selected'));
+  document.querySelector(`.mood-btn[data-m="${emoji}"]`)?.classList.add('selected');
+  moods.unshift({id:Date.now(),emoji,name,date:new Date().toISOString()});
+  save('myd_moods',moods);
+  renderMoodChart();
+  renderMoodLog();
+}
+
+function renderMoodChart(){
+  const days=['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
+  const today=new Date();
+  const bars=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(today);
+    d.setDate(today.getDate()-i);
+    const ds=d.toDateString();
+    const dayMoods=moods.filter(m=>new Date(m.date).toDateString()===ds);
+    const avg=dayMoods.length?dayMoods.reduce((s,m)=>{
+      const mo=MOODS.find(x=>x.e===m.emoji);
+      return s+(mo?mo.v:3);
+    },0)/dayMoods.length:0;
+    bars.push({label:days[d.getDay()],avg,count:dayMoods.length});
+  }
+  const maxH=80;
+  document.getElementById('moodChart').innerHTML=bars.map(b=>{
+    const h=b.avg?Math.round((b.avg/5)*maxH):3;
+    const opacity=b.count?1:0.2;
+    const color=b.avg>=4?'#7defa0':b.avg>=3?'#64aaff':b.avg>=2?'#ffbe64':b.avg>0?'#ff7070':'rgba(255,255,255,0.15)';
+    return`<div class="bar-wrap">
+      <div class="bar" style="height:${h}px;background:${color};opacity:${opacity}"></div>
+      <div class="bar-label">${b.label}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderMoodLog(){
+  const el=document.getElementById('moodLog');
+  if(!moods.length){
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🌤️</div>Відміток немає.<br>Вибери настрій вище.</div>`;
+    return;
+  }
+  el.innerHTML=moods.slice(0,10).map(m=>{
+    const d=new Date(m.date);
+    const ds=d.toLocaleDateString('uk-UA',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
+    return`<div class="mood-log-item">
+      <div class="mood-log-emoji">${m.emoji}</div>
+      <div class="mood-log-body">
+        <div class="mood-log-name">${m.name}</div>
+        <div class="mood-log-date">${ds}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===== REMINDERS =====
+let reminders=load('myd_reminders',[]);
+
+function localDateTimeNow(offsetMin){
+  const now=new Date();
+  if(offsetMin)now.setMinutes(now.getMinutes()+offsetMin);
+  const yyyy=now.getFullYear();
+  const mm=String(now.getMonth()+1).padStart(2,'0');
+  const dd=String(now.getDate()).padStart(2,'0');
+  const hh=String(now.getHours()).padStart(2,'0');
+  const mi=String(now.getMinutes()).padStart(2,'0');
+  return`${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+}
+
+function openRemindModal(){
+  document.getElementById('remindText').value='';
+  document.getElementById('remindTime').value=localDateTimeNow(30);
+  openModal('remindModal');
+}
+
+function saveRemind(){
+  const t=document.getElementById('remindText').value.trim();
+  const dt=document.getElementById('remindTime').value;
+  if(!t)return;
+  reminders.unshift({id:Date.now(),text:t,time:dt||null,done:false});
+  save('myd_reminders',reminders);
+  closeModal('remindModal');
+  renderReminders();
+  renderToday();
+}
+
+function toggleRemind(id){
+  reminders=reminders.map(r=>r.id===id?{...r,done:!r.done}:r);
+  save('myd_reminders',reminders);
+  renderReminders();
+  renderToday();
+}
+
+function deleteRemind(id){
+  reminders=reminders.filter(r=>r.id!==id);
+  save('myd_reminders',reminders);
+  renderReminders();
+  renderToday();
+}
+
+function renderReminders(){
+  const el=document.getElementById('remindList');
+  if(!reminders.length){
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon"><i class="ti ti-bell"></i></div>Нагадувань немає.<br>Натисни + щоб додати.</div>`;
+    return;
+  }
+  const sorted=[...reminders].sort((a,b)=>{
+    if(a.done!==b.done)return a.done?1:-1;
+    if(!a.time&&!b.time)return 0;
+    if(!a.time)return 1;
+    if(!b.time)return -1;
+    return new Date(a.time)-new Date(b.time);
+  });
+  el.innerHTML=sorted.map(r=>{
+    const timeStr=r.time?new Date(r.time).toLocaleString('uk-UA',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'}):'Без часу';
+    return`<div class="remind-item${r.done?' done':''}">
+      <div class="remind-check${r.done?' checked':''}" onclick="toggleRemind(${r.id})">
+        ${r.done?'<i class="ti ti-check" style="font-size:14px"></i>':''}
+      </div>
+      <div class="remind-body">
+        <div class="remind-name">${r.text.replace(/</g,'&lt;')}</div>
+        <div class="remind-time"><i class="ti ti-clock" style="font-size:12px;vertical-align:-1px;margin-right:4px"></i>${timeStr}</div>
+      </div>
+      <button class="remind-del" onclick="deleteRemind(${r.id})"><i class="ti ti-x"></i></button>
+    </div>`;
+  }).join('');
+}
+
+// ===== TODAY =====
+function renderToday(){
+  const el=document.getElementById('todayList');
+  const todayReminders=reminders.filter(r=>{
+    if(!r.time||r.done)return false;
+    const d=new Date(r.time);
+    const now=new Date();
+    return d.toDateString()===now.toDateString();
+  }).sort((a,b)=>new Date(a.time)-new Date(b.time));
+
+  if(!todayReminders.length){
+    el.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;font-weight:300">Сьогодні нагадувань немає.<br>Вільний день ✨</div>`;
+    return;
+  }
+  const colors=['#7defa0','#64aaff','#ffbe64','#c896ff','#ff7070'];
+  el.innerHTML=todayReminders.map((r,i)=>{
+    const d=new Date(r.time);
+    const h=String(d.getHours()).padStart(2,'0');
+    const m=String(d.getMinutes()).padStart(2,'0');
+    return`<div class="event-item" onclick="goScreen('remind')">
+      <div class="ev-time"><div class="ev-h">${h}:${m}</div></div>
+      <div class="ev-dot" style="background:${colors[i%colors.length]}"></div>
+      <div class="ev-body">
+        <div class="ev-name">${r.text.replace(/</g,'&lt;')}</div>
+        <div class="ev-meta">Нагадування</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===== MODALS =====
+function openModal(id){
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow='';
+}
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+  m.addEventListener('click',e=>{
+    if(e.target===m){
+      if(m.id==='voiceModal')stopVoice();
+      closeModal(m.id);
+    }
+  });
+});
+
+// ===== INIT =====
+initGreeting();
+loadPhoto();
+loadWeather();
+renderToday();
+</script>
+</body>
+</html>
